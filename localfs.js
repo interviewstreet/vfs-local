@@ -20,7 +20,7 @@ module.exports = function setup(fsOptions) {
             if (fsOptions.local) throw new Error();
             pty = fsOptions.local ? require('pty.nw.js') : require('pty.js');
         } catch(e) {
-            console.warn("unable to initialize " 
+            console.warn("unable to initialize "
                 + (fsOptions.local ? "pty.nw.js" : "pty.js") + ":");
             console.warn(e);
             pty = function(){};
@@ -34,7 +34,7 @@ module.exports = function setup(fsOptions) {
 
     // Get the separator char. In Node 0.8, we can use path.sep instead
     var pathSep = pathNormalize("/");
-    
+
     var METAPATH   = fsOptions.metapath;
     var WSMETAPATH = fsOptions.wsmetapath;
     var TESTING    = fsOptions.testing;
@@ -43,7 +43,7 @@ module.exports = function setup(fsOptions) {
     var root = fsOptions.root;
     if (!root) throw new Error("root is a required option");
     root = pathNormalize(root);
-    
+
     if (pathSep == "/" && root[0] !== "/") throw new Error("root path must start in /");
     if (root[root.length - 1] !== pathSep) root += pathSep;
 
@@ -112,28 +112,28 @@ module.exports = function setup(fsOptions) {
             callback = options;
             options = {};
         }
-        
+
         var alreadyRooted = options.alreadyRooted;
-        var checkSymlinks = options.checkSymlinks === undefined 
+        var checkSymlinks = options.checkSymlinks === undefined
             ? true : options.checkSymlinks;
         var isHome        = false;
-        
+
         if (checkSymlinks === undefined)
             checkSymlinks = true;
         if (path.substr(0, 2) == "~/") {
             isHome = true;
             path = process.env.HOME + path.substr(1);
         }
-        else if (!alreadyRooted) 
+        else if (!alreadyRooted)
             path = join(root, path);
 
-        if (checkSymlinks && fsOptions.checkSymlinks && !alreadyRooted) 
+        if (checkSymlinks && fsOptions.checkSymlinks && !alreadyRooted)
             fs.realpath(path, check);
         else check(null, path);
 
         function check(err, path) {
             if (err) return callback(err);
-            
+
             if (!options.nocheck) {
                 if (!(path === base || path.substr(0, root.length) === root)
                   && !isHome) {
@@ -175,6 +175,7 @@ module.exports = function setup(fsOptions) {
             } else {
                 entry.size = stat.size;
                 entry.mtime = stat.mtime.valueOf();
+                entry.readonly = !canWrite(stat);
 
                 if (stat.isDirectory()) {
                     entry.mime = "inode/directory";
@@ -224,11 +225,11 @@ module.exports = function setup(fsOptions) {
             if (err) return callback(err);
             fn(realpath, function (err) {
                 if (err) return callback(err);
-                
+
                 // Remove metadata
                 resolvePath(WSMETAPATH + path, function (err, realpath) {
                     if (err) return callback(null, meta);
-                    
+
                     fn(realpath, function(){
                         return callback(null, meta);
                     });
@@ -261,20 +262,20 @@ module.exports = function setup(fsOptions) {
             });
         });
     }
-    
+
     function metadata(path, data, callback) {
-        var dirpath = (path.substr(0,5) == "/_/_/" 
+        var dirpath = (path.substr(0,5) == "/_/_/"
             ? METAPATH + dirname(path.substr(4))
             : WSMETAPATH + "/" + dirname(path));
         resolvePath(dirpath, function (err, dir) {
             if (err) return callback(err);
-            
+
             var file = basename(path);
             path = join(dir, file);
-            
+
             execFile("mkdir", { args: ["-p", dir] }, function(err){
                 if (err) return callback(err);
-                
+
                 fs.writeFile(path, JSON.stringify(data), {}, function(err){
                     if (err) return callback(err);
                     callback(null, {});
@@ -417,7 +418,7 @@ module.exports = function setup(fsOptions) {
             });
         });
     }
-    
+
     // This is used for creating / overwriting files.  It always creates a new tmp
     // file and then renames to the final destination.
     // It will copy the properties of the existing file is there is one.
@@ -464,7 +465,7 @@ module.exports = function setup(fsOptions) {
             else
                 return callback(err);
         }
-        
+
         function resume() {
             if (readable) {
                 // Stop buffering events and playback anything that happened.
@@ -478,7 +479,7 @@ module.exports = function setup(fsOptions) {
                 if (readable.resume) readable.resume();
             }
         }
-        
+
         var tempPath;
         var resolvedPath = "";
 
@@ -512,23 +513,23 @@ module.exports = function setup(fsOptions) {
                     });
                     return;
                 }
-                
+
                 resolvedPath = _resolvedPath;
                 createTempFile();
             });
         }
-        
-        
+
+
         function createTempFile() {
             tempPath = tmpFile(dirname(resolvedPath), "." + basename(resolvedPath) + "-", "~");
-            
+
             var mode = options.mode || umask & 0666;
             fs.stat(resolvedPath, function(err, stat) {
                 if (err && err.code !== "ENOENT") return error(err);
-                
+
                 var uid = process.getuid ? process.getuid() : 0;
                 var gid = process.getgid ? process.getgid() : 0;
-                
+
                 if (stat) {
                     mode = stat.mode & 0777;
                     uid = stat.uid;
@@ -540,11 +541,11 @@ module.exports = function setup(fsOptions) {
                 var flags = constants.O_CREAT | constants.O_WRONLY | constants.O_EXCL;
                 fs.open(tempPath, flags, mode, function (err, fd) {
                     if (err) return error(err);
-                    
+
                     fs.fchown(fd, uid, gid, function(err) {
                         fs.close(fd);
                         if (err) return error(err);
-                        
+
                         pipe(fs.WriteStream(tempPath, {
                             encoding: options.encoding || null,
                             mode: mode
@@ -556,7 +557,7 @@ module.exports = function setup(fsOptions) {
 
         function pipe(writable) {
             var hadError;
-            
+
             if (readable) {
                 readable.pipe(writable);
             }
@@ -578,7 +579,7 @@ module.exports = function setup(fsOptions) {
 
             resume();
         }
-        
+
         function swap() {
             fs.rename(tempPath, resolvedPath, function (err) {
                 if (err) return error(err);
@@ -590,9 +591,9 @@ module.exports = function setup(fsOptions) {
     function mkdirP(path, options, callback) {
         resolvePath(path, { checkSymlinks: false}, function(err, dir) {
             if (err) return callback(err);
-            
+
             exists(dir, function(exists) {
-                if (exists) return callback(null, {}); 
+                if (exists) return callback(null, {});
                 execFile("mkdir", { args: ["-p", dir] }, function(err) {
                     if (err && err.message.indexOf("exists") > -1)
                         callback({"code": "EEXIST", "message": err.message});
@@ -605,10 +606,10 @@ module.exports = function setup(fsOptions) {
 
     function mkdir(path, options, callback) {
         var meta = {};
-        
+
         if (options.parents)
             return mkdirP(path, options, callback);
-            
+
         // Make sure the user has access to the parent directory and get the real path.
         resolvePath(dirname(path), function (err, dir) {
             if (err) return callback(err);
@@ -654,13 +655,13 @@ module.exports = function setup(fsOptions) {
             resolvePath(dirname(to), function (err, dir) {
                 if (err) return callback(err);
                 var topath = join(dir, basename(to));
-                
+
                 exists(topath, function(exists){
                     if (options.overwrite || !exists) {
                         // Rename the file
                         fs.rename(frompath, topath, function (err) {
                             if (err) return callback(err);
-                            
+
                             // Rename metadata
                             if (options.metadata !== false) {
                                 rename(WSMETAPATH + from, {
@@ -693,26 +694,26 @@ module.exports = function setup(fsOptions) {
         else {
             return callback(new Error("Must specify either options.from or options.to"));
         }
-        
+
         if (!options.overwrite) {
             resolvePath(to, function(err, path){
                 if (err) {
                     if (err.code == "ENOENT")
                         return innerCopy(from, to);
-                    
+
                     return callback(err);
                 }
-                
+
                 fs.stat(path, function(err, stat){
                     if (!err && stat && !stat.err) {
                         // TODO: this logic should be pushed into the application code
                         var path = to.replace(/(?:\.([\d+]))?(\.[^\.]*)?$/, function(m, d, e){
                             return "." + (parseInt(d, 10)+1 || 1) + (e ? e : "");
                         });
-                        
+
                         copy(from, {
-                            to        : path, 
-                            overwrite : false, 
+                            to        : path,
+                            overwrite : false,
                             recursive : options.recursive
                         }, callback);
                     }
@@ -725,7 +726,7 @@ module.exports = function setup(fsOptions) {
         else {
             innerCopy(from, to);
         }
-        
+
         function innerCopy(from, to) {
             if (options.recursive) {
                 resolvePath(from, function(err, rFrom){
@@ -737,10 +738,10 @@ module.exports = function setup(fsOptions) {
                             stdinEncoding : "utf8"
                         }, function(err, child){
                             if (err) return callback(err);
-                            
+
                             var proc = child.process;
                             var hasError;
-                            
+
                             proc.stderr.on("data", function(d){
                                 if (d) {
                                     hasError = true;
@@ -776,7 +777,7 @@ module.exports = function setup(fsOptions) {
         resolvePath(dirname(path), function (err, dir) {
             if (err) return callback(err);
             path = join(dir, basename(path));
-            
+
             resolvePath(options.target, function (err, target) {
                 if (err) return callback(err);
                 fs.symlink(target, path, function (err) {
@@ -791,7 +792,7 @@ module.exports = function setup(fsOptions) {
         var listeners  = [];
         var persistent = options.persistent;
         var watcher;
-        
+
         function watch(){
             if (options.file) {
                 watcher = fs.watchFile(path, { persistent: false }, function () {});
@@ -800,32 +801,32 @@ module.exports = function setup(fsOptions) {
             else {
                 watcher = fs.watch(path, { persistent: false }, function () {});
             }
-            
+
             watcher.on("change", listen);
         }
-        
+
         function listen(event, filename){
             listeners.forEach(function(fn){
                 fn(event, filename);
             });
-            
+
             if (persistent !== false) {
                 // This timeout fixes an eternal loop that can occur with watchers
                 setTimeout(function(){
-                    try{ 
+                    try{
                         watcher.close();
-                        watch(); 
+                        watch();
                     } catch(e) { }
                 });
             }
         }
-        
+
         this.close = function(){
             listeners  = [];
             watcher.removeListener("change", listen);
             watcher.close();
         };
-        
+
         this.on = function(name, fn){
             if (name != "change")
                 watcher.on.apply(watcher, arguments);
@@ -833,7 +834,7 @@ module.exports = function setup(fsOptions) {
                 listeners.push(fn);
             }
         };
-        
+
         this.removeListener = function(name, fn){
             if (name != "change")
                 watcher.removeListener.apply(watcher, arguments);
@@ -841,12 +842,12 @@ module.exports = function setup(fsOptions) {
                 listeners.splice(listeners.indexOf(fn), 1);
             }
         };
-        
+
         this.removeAllListeners = function() {
             listeners = [];
             watcher.removeAllListeners();
         };
-        
+
         watch();
     }
 
@@ -854,13 +855,13 @@ module.exports = function setup(fsOptions) {
         var meta = {};
         resolvePath(path, function (err, path) {
             if (err) return callback(err);
-            
+
             try {
                 meta.watcher = new WatcherWrapper(path, options);
             } catch (e) {
                 return callback(e);
             }
-            
+
             callback(null, meta);
         });
     }
@@ -898,13 +899,13 @@ module.exports = function setup(fsOptions) {
         }
         if (options.cwd && options.cwd.charAt(0) == "~")
             options.cwd = options.env.HOME + options.cwd.substr(1);
-        
-        resolvePath(executablePath, { 
+
+        resolvePath(executablePath, {
             nocheck       : 1,
             alreadyRooted : true
         }, function(err, path){
             if (err) return callback(err);
-            
+
             var child;
             try {
                 child = childProcess.spawn(path, args, options);
@@ -918,28 +919,28 @@ module.exports = function setup(fsOptions) {
             if (options.hasOwnProperty('stderrEncoding')) {
                 child.stderr.setEncoding(options.stderrEncoding);
             }
-            
+
             // node 0.10.x emits error events if the file does not exist
             child.on("error", function(err) {
               child.emit("exit", 127);
             });
-    
+
             callback(null, {
                 process: child
             });
         });
     }
-    
+
     function ptyspawn(executablePath, options, callback) {
         var args = options.args || [];
         delete options.args;
-        
+
         if (options.hasOwnProperty('env')) {
             options.env.__proto__ = fsOptions.defaultEnv;
         } else {
             options.env = fsOptions.defaultEnv;
         }
-    
+
         // Pty is only reading from the object itself;
         var env = {};
         for (var prop in options.env) {
@@ -949,13 +950,13 @@ module.exports = function setup(fsOptions) {
         options.env = env;
         if (options.cwd && options.cwd.charAt(0) == "~")
             options.cwd = env.HOME + options.cwd.substr(1);
-        
-        resolvePath(executablePath, { 
+
+        resolvePath(executablePath, {
             nocheck       : 1,
             alreadyRooted : true
         }, function(err, path){
             if (err) return callback(err);
-    
+
             var proc;
             try {
                 proc = pty.spawn(path, args, options);
@@ -967,7 +968,7 @@ module.exports = function setup(fsOptions) {
             } catch (err) {
                 return callback(err);
             }
-            
+
             callback(null, {
                 pty: proc
             });
@@ -982,21 +983,21 @@ module.exports = function setup(fsOptions) {
         }
         if (options.cwd && options.cwd.charAt(0) == "~")
             options.cwd = options.env.HOME + options.cwd.substr(1);
-        
+
         resolvePath(executablePath, {
             nocheck       : 1,
             alreadyRooted : true
         }, function(err, path){
             if (err) return callback(err);
-            
-            childProcess.execFile(path, options.args || [], 
+
+            childProcess.execFile(path, options.args || [],
               options, function (err, stdout, stderr) {
                 if (err) {
                     err.stderr = stderr;
                     err.stdout = stdout;
                     return callback(err);
                 }
-    
+
                 callback(null, {
                     stdout: stdout,
                     stderr: stderr
@@ -1170,4 +1171,10 @@ function uid(length) {
 
 function tmpFile(baseDir, prefix, suffix) {
     return join(baseDir, [prefix || "", uid(20), suffix || ""].join(""));
+}
+
+function canWrite(stat) {
+  return !!((process.getuid() === stat.uid && (stat.mode & parseInt('00200', 8))) ||
+    (process.getgid() === stat.gid && (stat.mode & parseInt('00020', 8))) ||
+    (stat.mode & parseInt('00002', 8)));
 }
